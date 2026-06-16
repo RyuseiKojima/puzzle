@@ -3,21 +3,35 @@ import type { Dispatch, MutableRefObject, PointerEvent, RefObject, SetStateActio
 import type { Metrics, PuzzlePiece } from "../types";
 import { clamp, rotate } from "../utils/puzzle";
 
-type UsePieceDragParams = {
+type UsePieceDragParams = Readonly<{
   applySnap: (piece: PuzzlePiece, metrics: Metrics) => PuzzlePiece;
   boardRef: RefObject<HTMLDivElement>;
   getMetrics: () => Metrics;
   pieces: PuzzlePiece[];
   setPieces: Dispatch<SetStateAction<PuzzlePiece[]>>;
   zIndexRef: MutableRefObject<number>;
-};
+}>;
 
-export function usePieceDrag({ applySnap, boardRef, getMetrics, pieces, setPieces, zIndexRef }: UsePieceDragParams) {
+type UsePieceDragResult = Readonly<{
+  handlePointerDown: (event: PointerEvent<HTMLButtonElement>, pieceId: number) => void;
+  handlePointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
+  handlePointerUp: (event: PointerEvent<HTMLButtonElement>, pieceId: number) => void;
+}>;
+
+/**
+ * ピースの pointer 操作を管理する。
+ *
+ * ドラッグ中は盤面内に収まるよう位置を更新し、クリックに近い操作ではピースを回転させる。
+ */
+export function usePieceDrag({ applySnap, boardRef, getMetrics, pieces, setPieces, zIndexRef }: UsePieceDragParams): UsePieceDragResult {
   const activePieceRef = useRef<number | null>(null);
   const pointerOffsetRef = useRef({ x: 0, y: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });
   const didDragRef = useRef(false);
 
+  /**
+   * 操作対象のピースを記録し、pointer 位置とピース左上の差分を保持する。
+   */
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, pieceId: number) => {
     const piece = pieces.find((item) => item.id === pieceId);
     if (!piece || piece.locked) return;
@@ -35,6 +49,9 @@ export function usePieceDrag({ applySnap, boardRef, getMetrics, pieces, setPiece
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
+  /**
+   * pointer の移動量に合わせて、アクティブなピースの座標を更新する。
+   */
   const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
     const activeId = activePieceRef.current;
     const board = boardRef.current;
@@ -61,6 +78,9 @@ export function usePieceDrag({ applySnap, boardRef, getMetrics, pieces, setPiece
     );
   };
 
+  /**
+   * 操作終了時にクリックなら回転、ドラッグなら現在位置を確定し、必要に応じて正解位置へ吸着する。
+   */
   const handlePointerUp = (event: PointerEvent<HTMLButtonElement>, pieceId: number) => {
     event.currentTarget.releasePointerCapture(event.pointerId);
 

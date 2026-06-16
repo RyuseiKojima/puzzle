@@ -1,15 +1,31 @@
 import { useCallback, useRef } from "react";
+import type { RefObject } from "react";
 import type { Metrics, PuzzleSize } from "../types";
 
-type ImageSize = {
+type ImageSize = Readonly<{
   width: number;
   height: number;
-};
+}>;
 
-export function useBoardMetrics(size: PuzzleSize, imageSize: ImageSize) {
+type UseBoardMetricsResult = Readonly<{
+  boardRef: RefObject<HTMLDivElement>;
+  boardWrapRef: RefObject<HTMLDivElement>;
+  getMetrics: () => Metrics;
+  updateBoardFrame: () => void;
+}>;
+
+/**
+ * 盤面 DOM の参照と、ピース描画・ドラッグ判定に必要な寸法情報を管理する。
+ *
+ * 画像比率と画面幅に応じて盤面サイズを更新し、各 hook から最新の metrics を取得できるようにする。
+ */
+export function useBoardMetrics(size: PuzzleSize, imageSize: ImageSize): UseBoardMetricsResult {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const boardWrapRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * 画像のアスペクト比を保ったまま、利用可能な表示領域に収まる盤面サイズへ調整する。
+   */
   const updateBoardFrame = useCallback(() => {
     const boardWrap = boardWrapRef.current;
     const playArea = boardWrap?.parentElement;
@@ -28,6 +44,9 @@ export function useBoardMetrics(size: PuzzleSize, imageSize: ImageSize) {
     boardWrap.style.aspectRatio = `${imageSize.width} / ${imageSize.height}`;
   }, [imageSize]);
 
+  /**
+   * 現在の盤面サイズから、ピースの実寸・タブ幅・移動可能範囲・スナップ距離を算出する。
+   */
   const getMetrics = useCallback((): Metrics => {
     const board = boardRef.current;
     const boardWidth = board?.clientWidth ?? 0;
